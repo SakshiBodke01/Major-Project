@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DriveGuard AI</string>
+    <string name="title_safety_score">SAFETY SCORE</string>
+    <string name="initial_score">100</string>
+    <string name="score_max">/ 100</string>
+    <string name="status_standby">STANDBY</string>
+    <string name="status_monitoring">MONITORING ACTIVE</string>
+    <string name="status_alert">WARNING ALERT</string>
+    <string name="gps_active">GPS ACTIVE</string>
+    <string name="gps_off">GPS SEARCHING</string>
+    <string name="btn_start_trip">START TRIP</string>
+    <string name="btn_stop_trip">STOP TRIP</string>
+    <string name="msg_standby">Tap START TRIP to activate driver monitoring.</string>
+    <string name="msg_active">Monitoring active. Keep eyes on the road.</string>
+</resources>

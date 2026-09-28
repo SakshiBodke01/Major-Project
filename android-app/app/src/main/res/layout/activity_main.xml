@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark"
+    tools:context=".MainActivity">
+
+    <!-- CameraX Front Preview View -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/viewFinder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Top Dashboard Header Overlay -->
+    <LinearLayout
+        android:id="@+id/topHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:padding="16dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Safety Score Card -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@color/card_bg"
+            android:padding="12dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/title_safety_score"
+                android:textColor="#94A3B8"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="bottom">
+
+                <TextView
+                    android:id="@+id/tvScoreValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/initial_score"
+                    android:textColor="@color/score_green"
+                    android:textSize="32sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/score_max"
+                    android:textColor="#64748B"
+                    android:textSize="14sp"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginBottom="4dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Right Indicators Container -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="end"
+            android:layout_marginStart="12dp">
+
+            <!-- Monitoring Status Indicator -->
+            <TextView
+                android:id="@+id/tvMonitoringStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/status_standby"
+                android:textColor="@color/white"
+                android:background="@color/status_idle"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <!-- GPS Status Indicator -->
+            <TextView
+                android:id="@+id/tvGpsStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/gps_active"
+                android:textColor="#10B981"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Bottom Vehicle Action & Alert Area Overlay -->
+    <LinearLayout
+        android:id="@+id/bottomControlsArea"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:padding="20dp"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <!-- Alert & Status Message Banner -->
+        <TextView
+            android:id="@+id/tvAlertMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/msg_standby"
+            android:textColor="@color/white"
+            android:background="#1E293B"
+            android:padding="16dp"
+            android:textSize="16sp"
+            android:textAlignment="center"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <!-- High-Visibility Vehicle Start/Stop Trip Button -->
+        <Button
+            android:id="@+id/btnTripToggle"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:text="@string/btn_start_trip"
+            android:textColor="@color/white"
+            android:backgroundTint="@color/btn_start"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+
+</RelativeLayout>

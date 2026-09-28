@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+*.tflite
+*.onnx
+*.pt
+*.pth
+*.h5
+.DS_Store
