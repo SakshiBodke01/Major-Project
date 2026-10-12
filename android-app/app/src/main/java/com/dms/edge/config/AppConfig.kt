@@ -5,8 +5,8 @@ package com.dms.edge.config
  * Controls API endpoints, frame sampling rate, and detection thresholds.
  */
 object AppConfig {
-    // Backend REST API Base URL (Change to host IP when running on physical Android device)
-    const val BASE_URL = "http://10.0.2.2:5000/api/v1/"
+    // Backend REST API Base URL (127.0.0.1 connects to PC server via 'adb reverse tcp:5000 tcp:5000')
+    const val BASE_URL = "http://127.0.0.1:5000/api/v1/"
 
     // Frame processing frequency (FPS limit to save edge device battery/thermal)
     const val SAMPLE_RATE_FPS = 5

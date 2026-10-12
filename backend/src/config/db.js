@@ -40,6 +40,48 @@ const connectDB = async () => {
       serverSelectionTimeoutMS: 1500, // 1.5s timeout for fast initial probe
     });
     logger.info(`MongoDB Connected successfully to ${conn.connection.host}/${conn.connection.name}`);
+
+    // Seed clean Manager accounts (manager: @manager123, admin: @admin123)
+    try {
+      const Manager = require('../models/Manager');
+
+      await Manager.findOneAndUpdate(
+        { managerId: 'MGR-001' },
+        {
+          $set: {
+            managerId: 'MGR-001',
+            username: 'manager',
+            password: '@manager123',
+            name: 'Fleet Operations Manager',
+            email: 'manager@fleetops.com',
+            role: 'MANAGER',
+            department: 'Fleet Operations',
+          },
+        },
+        { upsert: true, new: true }
+      );
+
+      await Manager.findOneAndUpdate(
+        { managerId: 'MGR-ADMIN' },
+        {
+          $set: {
+            managerId: 'MGR-ADMIN',
+            username: 'admin',
+            password: '@admin123',
+            name: 'Central Fleet Admin',
+            email: 'admin@fleetops.com',
+            role: 'MANAGER',
+            department: 'Central Administration',
+          },
+        },
+        { upsert: true, new: true }
+      );
+
+      logger.info('Ensured clean Manager accounts: manager (@manager123) and admin (@admin123)');
+    } catch (seedErr) {
+      logger.warn(`Could not seed manager accounts: ${seedErr.message}`);
+    }
+
     return conn;
   } catch (error) {
     if (config.nodeEnv === 'production') {

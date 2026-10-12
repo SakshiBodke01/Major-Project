@@ -12,6 +12,10 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (reqConfig) => {
+    const token = localStorage.getItem('driveguard_token') || sessionStorage.getItem('driveguard_token');
+    if (token) {
+      reqConfig.headers.Authorization = `Bearer ${token}`;
+    }
     logger.info(`API Request: ${reqConfig.method?.toUpperCase()} ${reqConfig.url}`);
     return reqConfig;
   },
@@ -38,6 +42,7 @@ export const healthService = {
 export const driverService = {
   getDrivers: (params) => apiClient.get('/drivers', { params }),
   getDriverById: (id) => apiClient.get(`/drivers/${id}`),
+  createDriver: (data) => apiClient.post('/drivers', data),
 };
 
 export const tripService = {
@@ -58,6 +63,16 @@ export const scoreSnapshotService = {
 
 export const analyticsService = {
   getOverview: (params) => apiClient.get('/analytics/overview', { params }),
+};
+
+export const authService = {
+  login: (credentials) => apiClient.post('/auth/login', credentials),
+};
+
+export const webhookService = {
+  getStatus: () => apiClient.get('/webhooks/status'),
+  triggerTest: (payload) => apiClient.post('/webhooks/test', payload || {}),
+  sendWebhook: (payload) => apiClient.post('/webhooks/telemetry', payload),
 };
 
 export default apiClient;

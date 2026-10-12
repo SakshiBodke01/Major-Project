@@ -3,6 +3,8 @@ package com.dms.edge
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -12,6 +14,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.dms.edge.alert.AlertManager
 import com.dms.edge.camera.CameraManager
+import com.dms.edge.cv.DemoSimulationEngine
 import com.dms.edge.cv.mediapipe.MediaPipeCVEngine
 import com.dms.edge.engine.RiskEngine
 import com.dms.edge.engine.RiskEngineEvent
@@ -33,15 +36,32 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tripSessionManager: TripSessionManager
     private lateinit var alertManager: AlertManager
     private val mediaPipeEngine = MediaPipeCVEngine()
+    private val demoEngine = DemoSimulationEngine()
 
     private lateinit var viewFinder: PreviewView
     private lateinit var tvScoreValue: TextView
     private lateinit var tvMonitoringStatus: TextView
     private lateinit var tvGpsStatus: TextView
     private lateinit var tvAlertMessage: TextView
+    private lateinit var tvDriverBadge: TextView
     private lateinit var btnTripToggle: Button
+    private lateinit var btnModeToggle: Button
 
     private var recentEventText: String = "None"
+    private var isDemoMode: Boolean = false
+    private var currentDriverId: String = com.dms.edge.config.AppConfig.DEFAULT_DRIVER_ID
+    private var currentDriverName: String = "Driver"
+
+    // Periodic 1-second ticker for safe driving score recovery (+20 pts after 1 min clean driving)
+    private val recoveryCheckHandler = Handler(Looper.getMainLooper())
+    private val recoveryCheckRunnable = object : Runnable {
+        override fun run() {
+            if (tripSessionManager.isTripActive && tripSessionManager.currentState != TripState.PAUSED) {
+                riskEngine.checkCleanDrivingRecovery()
+            }
+            recoveryCheckHandler.postDelayed(this, 1000L)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,10 +73,17 @@ class MainActivity : AppCompatActivity() {
         tvMonitoringStatus = findViewById(R.id.tvMonitoringStatus)
         tvGpsStatus = findViewById(R.id.tvGpsStatus)
         tvAlertMessage = findViewById(R.id.tvAlertMessage)
+        tvDriverBadge = findViewById(R.id.tvDriverBadge)
         btnTripToggle = findViewById(R.id.btnTripToggle)
+        btnModeToggle = findViewById(R.id.btnModeToggle)
+
+        // Read logged in driver credentials
+        currentDriverId = intent.getStringExtra(com.dms.edge.auth.LoginActivity.EXTRA_DRIVER_ID)
+            ?: com.dms.edge.config.AppConfig.DEFAULT_DRIVER_ID
+        tvDriverBadge.text = "DRIVER: $currentDriverId"
 
         // Initialize Audio & Visual Alert Manager
-        alertManager = AlertManager()
+        alertManager = AlertManager(this)
 
         // Initialize Location Tracker & Central Risk Engine
         locationTracker = LocationTracker(this)
@@ -73,15 +100,43 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Initialize MediaPipe Engine
+        // Initialize MediaPipe / ML Kit Face Detector Engine
         mediaPipeEngine.initialize(this)
 
-        // Create Frame Analyzer
-        val analyzer = DriverMonitoringAnalyzer(mediaPipeEngine) { _ ->
+        // Setup Pipeline Mode Toggle (Live Camera vs Demo Simulation)
+        btnModeToggle.setOnClickListener {
+            isDemoMode = !isDemoMode
+            if (isDemoMode) {
+                btnModeToggle.text = "MODE: DEMO"
+                btnModeToggle.backgroundTintList = ContextCompat.getColorStateList(this, R.color.purple_500)
+                Toast.makeText(this, "DEMO MODE: Automated driver risk scenario", Toast.LENGTH_SHORT).show()
+            } else {
+                btnModeToggle.text = "MODE: LIVE"
+                btnModeToggle.backgroundTintList = ContextCompat.getColorStateList(this, R.color.card_bg)
+                Toast.makeText(this, "LIVE MODE: Real-time camera eye & face tracking", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Create Frame Analyzer connected to live CV engine
+        val analyzer = DriverMonitoringAnalyzer(mediaPipeEngine) { frameResult ->
             runOnUiThread {
-                if (tripSessionManager.isTripActive && tripSessionManager.currentState == TripState.MONITORING) {
-                    val (drowsinessResult, yawnResult) = mediaPipeEngine.landmarkModule.processLandmarks(true)
-                    riskEngine.processSignals(drowsiness = drowsinessResult, yawn = yawnResult)
+                if (tripSessionManager.isTripActive && tripSessionManager.currentState != TripState.PAUSED) {
+                    if (isDemoMode) {
+                        val (simDrowsiness, simYawn, simYolo) = demoEngine.evaluateDemoStep()
+                        riskEngine.processSignals(
+                            drowsiness = simDrowsiness,
+                            yawn = simYawn,
+                            yolo = simYolo
+                        )
+                    } else {
+                        val drowsiness = mediaPipeEngine.lastDrowsinessResult
+                        val yawn = mediaPipeEngine.lastYawnResult
+                        riskEngine.processSignals(
+                            drowsiness = drowsiness,
+                            yawn = yawn,
+                            isDistracted = frameResult.isDistracted && !(drowsiness?.prolongedClosure ?: false)
+                        )
+                    }
                 }
             }
         }
@@ -111,13 +166,21 @@ class MainActivity : AppCompatActivity() {
         }
 
         recentEventText = "None"
+        alertManager.stopEmergencySiren()
+        if (isDemoMode) {
+            demoEngine.startDemoSimulation()
+        }
 
-        tripSessionManager.startTrip {
+        // Start periodic 1-second clean driving recovery evaluation
+        recoveryCheckHandler.removeCallbacks(recoveryCheckRunnable)
+        recoveryCheckHandler.postDelayed(recoveryCheckRunnable, 1000L)
+
+        tripSessionManager.startTrip(driverId = currentDriverId) {
             cameraManager.startCamera(
                 onSuccess = {
                     runOnUiThread {
                         updateGpsAndNetworkIndicators()
-                        Logger.i("MainActivity", "Trip started. State: ${tripSessionManager.currentState}")
+                        Logger.i("MainActivity", "Trip started for $currentDriverId ($currentDriverName). State: ${tripSessionManager.currentState}")
                     }
                 },
                 onError = { exc ->
@@ -131,6 +194,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun stopTrip() {
+        recoveryCheckHandler.removeCallbacks(recoveryCheckRunnable)
+        alertManager.stopEmergencySiren()
+        if (isDemoMode) {
+            demoEngine.stopDemoSimulation()
+        }
         cameraManager.stopCamera()
         tripSessionManager.stopTrip {
             runOnUiThread {
@@ -141,23 +209,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleRiskAlert(event: RiskEngineEvent) {
-        // 1. Trigger audio warning chime and format visual text
+        // 1. Trigger audio warning chime or high-volume emergency siren and format visual text
         val warningText = alertManager.triggerAlert(event)
-        recentEventText = "${event.eventType} (-${event.pointsDeducted} pts)"
+
+        if (event.eventType == "SCORE_RECOVERY") {
+            val ptsGained = kotlin.math.abs(event.pointsDeducted)
+            recentEventText = "Clean Driving (+${ptsGained} pts)"
+        } else {
+            recentEventText = "${event.eventType} (-${event.pointsDeducted} pts)"
+        }
 
         // 2. Report risk event through TripSessionManager
         tripSessionManager.reportRiskEvent(event)
 
         // 3. Update safety score and alert banner on UI
         tvScoreValue.text = event.currentScore.toString()
-        tvAlertMessage.text = "$warningText\nRecent: $recentEventText"
-
-        val alertBgColor = when (event.severity) {
-            "CRITICAL", "HIGH" -> R.color.status_danger
-            "MEDIUM" -> R.color.status_warning
-            else -> R.color.card_bg
+        if (event.currentScore <= 0) {
+            tvScoreValue.setTextColor(ContextCompat.getColor(this, R.color.status_danger))
+            tvAlertMessage.text = "🚨 EMERGENCY: SAFETY SCORE AT 0!\n$warningText"
+            tvAlertMessage.setBackgroundColor(ContextCompat.getColor(this, R.color.status_danger))
+        } else {
+            tvScoreValue.setTextColor(ContextCompat.getColor(this, R.color.score_green))
+            if (event.eventType == "SCORE_RECOVERY") {
+                tvAlertMessage.text = "$warningText\nScore restored to ${event.currentScore}/100"
+                tvAlertMessage.setBackgroundColor(ContextCompat.getColor(this, R.color.status_active))
+            } else {
+                tvAlertMessage.text = "$warningText\nRecent: $recentEventText"
+                val alertBgColor = when (event.severity) {
+                    "CRITICAL", "HIGH" -> R.color.status_danger
+                    "MEDIUM" -> R.color.status_warning
+                    else -> R.color.card_bg
+                }
+                tvAlertMessage.setBackgroundColor(ContextCompat.getColor(this, alertBgColor))
+            }
         }
-        tvAlertMessage.setBackgroundColor(ContextCompat.getColor(this, alertBgColor))
     }
 
     private fun updateUiForState(state: TripState) {
@@ -178,13 +263,21 @@ class MainActivity : AppCompatActivity() {
                 tvAlertMessage.setBackgroundColor(ContextCompat.getColor(this, R.color.status_warning))
             }
             TripState.NETWORK_DEGRADED -> {
+                tvMonitoringStatus.text = "OFFLINE"
                 tvMonitoringStatus.setBackgroundColor(ContextCompat.getColor(this, R.color.status_warning))
-                tvAlertMessage.text = "Network Offline (Telemetry Queued Locally)\nRecent: $recentEventText"
+                btnTripToggle.text = getString(R.string.btn_stop_trip)
+                btnTripToggle.backgroundTintList = ContextCompat.getColorStateList(this, R.color.btn_stop)
+                if (recentEventText != "None") {
+                    tvAlertMessage.text = "${getString(R.string.msg_active)}\nRecent: $recentEventText"
+                } else {
+                    tvAlertMessage.text = "Active Monitoring (Offline Telemetry Queued)"
+                }
             }
             TripState.STARTING, TripState.STOPPING -> {
                 tvMonitoringStatus.setBackgroundColor(ContextCompat.getColor(this, R.color.status_warning))
             }
             TripState.IDLE, TripState.COMPLETED -> {
+                alertManager.stopEmergencySiren()
                 tvMonitoringStatus.setBackgroundColor(ContextCompat.getColor(this, R.color.status_idle))
                 btnTripToggle.text = getString(R.string.btn_start_trip)
                 btnTripToggle.backgroundTintList = ContextCompat.getColorStateList(this, R.color.btn_start)
@@ -206,7 +299,7 @@ class MainActivity : AppCompatActivity() {
             "OFFLINE QUEUED ($queueSize)"
         }
 
-        tvGpsStatus.text = "$gpsText | $networkText"
+        tvGpsStatus.text = "$currentDriverId | $gpsText | $networkText"
         val statusColor = if (isGpsOn && isOnline) R.color.status_active else R.color.status_warning
         tvGpsStatus.setTextColor(ContextCompat.getColor(this, statusColor))
     }
@@ -230,6 +323,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        alertManager.stopEmergencySiren()
         if (tripSessionManager.isTripActive) {
             Logger.i("MainActivity", "App backgrounded. Pausing camera & monitoring cleanly.")
             cameraManager.stopCamera()
@@ -251,6 +345,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        recoveryCheckHandler.removeCallbacks(recoveryCheckRunnable)
         cameraManager.stopCamera()
         locationTracker.stopLocationUpdates()
         alertManager.release()

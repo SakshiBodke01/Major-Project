@@ -66,11 +66,33 @@ DriveGuard AI is an **Edge-Based Driver Monitoring System (DMS)** designed for s
 
 ---
 
+## 🚦 Trip Session State Machine
+
+The Android client enforces a robust state machine in `TripStateMachine.kt` that governs UI states, telemetry queueing, and camera analysis:
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+    IDLE --> STARTING: User taps Start Trip
+    STARTING --> MONITORING: API trip creation succeeds
+    STARTING --> NETWORK_DEGRADED: API unreachable (queued offline)
+    MONITORING --> NETWORK_DEGRADED: Network lost
+    NETWORK_DEGRADED --> MONITORING: Connectivity restored & queue flushed
+    MONITORING --> PAUSED: User pauses trip
+    PAUSED --> MONITORING: User resumes trip
+    MONITORING --> STOPPING: User taps Stop Trip
+    NETWORK_DEGRADED --> STOPPING: User taps Stop Trip
+    STOPPING --> COMPLETED: Final score & destination synced
+    COMPLETED --> IDLE: Reset session
+```
+
+---
+
 ## 📦 Subsystem Responsibilities
 
 1. **Android App (`/android-app`)**:
    - Manages CameraX preview and frame buffer lifecycle (`ImageProxy.close()`).
-   - Implements local audio chime alerts ([AlertManager.kt](file:///c:/Users/saksh/OneDrive/Documents/Major%20Project/android-app/app/src/main/java/com/dms/edge/alert/AlertManager.kt)) and vehicle HUD layout.
+   - Implements local audio chime alerts ([AlertManager.kt](../android-app/app/src/main/java/com/dms/edge/alert/AlertManager.kt)) and vehicle HUD layout.
    - Manages trip session state machine (`IDLE` -> `STARTING` -> `MONITORING` -> `PAUSED` -> `NETWORK_DEGRADED` -> `STOPPING` -> `COMPLETED`).
    - Handles offline telemetry queueing with UUID idempotency during network loss.
 

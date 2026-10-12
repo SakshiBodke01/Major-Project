@@ -20,6 +20,34 @@ const authenticate = (req, res, next) => {
   }
 };
 
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = jwt.verify(token, config.jwtSecret);
+      req.user = decoded;
+    } catch {
+      // Ignored for optional auth
+    }
+  }
+  next();
+};
+
+const requireRole = (allowedRole) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return sendError(res, 'Authentication required.', 401);
+    }
+    if (req.user.role !== allowedRole) {
+      return sendError(res, `Forbidden: Only users with role '${allowedRole}' are permitted.`, 403);
+    }
+    next();
+  };
+};
+
 module.exports = {
   authenticate,
+  optionalAuth,
+  requireRole,
 };

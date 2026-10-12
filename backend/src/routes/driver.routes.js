@@ -1,5 +1,6 @@
 const express = require('express');
 const { createDriver, getDrivers, getDriverById } = require('../controllers/driver.controller');
+const { optionalAuth } = require('../middlewares/auth.middleware');
 const validate = require('../middlewares/validate.middleware');
 
 const router = express.Router();
@@ -11,8 +12,8 @@ const createDriverSchema = {
   },
 };
 
-router.post('/', validate(createDriverSchema), createDriver);
-router.get('/', getDrivers);
-router.get('/:id', getDriverById);
+router.post('/', optionalAuth, validate(createDriverSchema), createDriver);
+router.get('/', optionalAuth, getDrivers);
+router.get('/:id', optionalAuth, getDriverById);
 
 module.exports = router;

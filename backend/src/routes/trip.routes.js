@@ -1,5 +1,6 @@
 const express = require('express');
-const { startTrip, getActiveTrips, getTripById, finishTrip } = require('../controllers/trip.controller');
+const { startTrip, getTrips, getActiveTrips, getTripById, finishTrip } = require('../controllers/trip.controller');
+const { optionalAuth } = require('../middlewares/auth.middleware');
 const validate = require('../middlewares/validate.middleware');
 
 const router = express.Router();
@@ -12,9 +13,10 @@ const startTripSchema = {
   },
 };
 
-router.post('/', validate(startTripSchema), startTrip);
-router.get('/active', getActiveTrips);
-router.get('/:id', getTripById);
-router.patch('/:id/finish', finishTrip);
+router.post('/', optionalAuth, validate(startTripSchema), startTrip);
+router.get('/', optionalAuth, getTrips);
+router.get('/active', optionalAuth, getActiveTrips);
+router.get('/:id', optionalAuth, getTripById);
+router.patch('/:id/finish', optionalAuth, finishTrip);
 
 module.exports = router;

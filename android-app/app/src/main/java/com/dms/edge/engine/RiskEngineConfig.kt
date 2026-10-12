@@ -21,5 +21,9 @@ data class RiskEngineConfig(
     val drowsinessCooldownMs: Long = 10000L,       // 10s cooldown
     val phoneCooldownMs: Long = 8000L,             // 8s cooldown
     val distractionCooldownMs: Long = 6000L,       // 6s cooldown
-    val yawningCooldownMs: Long = 5000L            // 5s cooldown
+    val yawningCooldownMs: Long = 5000L,           // 5s cooldown
+
+    // Safe driving score recovery rule: +20 points for every 1 minute (60s) of rule-abiding driving
+    val cleanDrivingRecoveryIntervalMs: Long = 60000L,
+    val cleanDrivingBonus: Int = 20
 )

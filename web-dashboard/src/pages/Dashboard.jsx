@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { riskEventService, tripService, driverService } from '../services/api';
+import { riskEventService, tripService, driverService, webhookService } from '../services/api';
+import { subscribeToLiveWebhook } from '../services/webhookStream';
 import { RiskEventCard } from '../components/RiskEventCard';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
@@ -14,6 +15,11 @@ export const Dashboard = () => {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Live Webhook Stream State
+  const [streamStatus, setStreamStatus] = useState('CONNECTING');
+  const [liveBanner, setLiveBanner] = useState(null);
+  const [triggeringTest, setTriggeringTest] = useState(false);
 
   const fetchOverviewData = async () => {
     setLoading(true);
@@ -50,9 +56,82 @@ export const Dashboard = () => {
     }
   };
 
+  const handleLiveEvent = useCallback((incoming) => {
+    logger.info('Live event received on dashboard:', incoming);
+
+    // Extract event details
+    const eventData = incoming.event || incoming.data || incoming;
+    const type = eventData.type || eventData.eventType || incoming.type || 'ALERT';
+    const driverId = eventData.driverId || incoming.driverId || 'DRV-UNKNOWN';
+    const severity = eventData.severity || incoming.severity || 'HIGH';
+
+    // Set animated notification banner
+    setLiveBanner({
+      type,
+      driverId,
+      severity,
+      timestamp: new Date().toLocaleTimeString(),
+      source: incoming.source || 'Android Edge Live Telemetry',
+    });
+
+    // Auto-dismiss banner after 6 seconds
+    setTimeout(() => {
+      setLiveBanner((curr) => (curr?.timestamp === new Date().toLocaleTimeString() ? null : curr));
+    }, 6000);
+
+    // Prepend to recent events list if it looks like a risk event
+    const normalized = {
+      _id: eventData.eventId || eventData._id || `evt-${Date.now()}`,
+      eventId: eventData.eventId || `evt-${Date.now()}`,
+      tripId: eventData.tripId || incoming.tripId || 'LIVE-TRIP',
+      driverId: driverId,
+      type: type,
+      eventType: type,
+      severity: severity,
+      timestamp: eventData.timestamp || new Date().toISOString(),
+      confidence: eventData.confidence || 0.95,
+      details: eventData.details || `Real-time edge alert: ${type}`,
+    };
+
+    setEvents((prev) => [normalized, ...prev.slice(0, 5)]);
+
+    // Trigger full overview refresh silently to update Active Trips and KPI cards
+    setTimeout(() => {
+      fetchOverviewData();
+    }, 500);
+  }, []);
+
+  // Subscribe to live webhook stream
   useEffect(() => {
     fetchOverviewData();
-  }, []);
+
+    const unsubscribe = subscribeToLiveWebhook({
+      onEvent: handleLiveEvent,
+      onStatusChange: (status) => setStreamStatus(status),
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [handleLiveEvent]);
+
+  // Trigger test webhook
+  const handleTriggerTest = async () => {
+    setTriggeringTest(true);
+    try {
+      await webhookService.triggerTest({
+        driverId: 'DRV-101',
+        eventType: 'DROWSINESS',
+        severity: 'HIGH',
+        confidence: 0.94,
+        source: 'Dashboard Quick Test',
+      });
+    } catch (err) {
+      logger.error('Failed to trigger test webhook:', err);
+    } finally {
+      setTriggeringTest(false);
+    }
+  };
 
   if (loading) return <LoadingSpinner message="Aggregating edge fleet metrics..." />;
   if (error) return <ErrorMessage message={error} onRetry={fetchOverviewData} />;
@@ -66,15 +145,84 @@ export const Dashboard = () => {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Fleet Overview & Safety Operations</h1>
           <p className="text-slate-500 text-sm">Real-time edge numerical telemetry, active trips, and driver safety indicators</p>
         </div>
-        <div className="text-xs bg-slate-200 text-slate-700 px-3 py-1.5 rounded-md font-semibold self-start sm:self-auto">
-          Updated: {new Date().toLocaleTimeString()}
+
+        {/* Live Webhook Status & Test Controls */}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {/* Live Stream Status Badge */}
+          <div
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${
+              streamStatus === 'CONNECTED'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : streamStatus === 'CONNECTING'
+                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                : 'bg-rose-50 text-rose-700 border-rose-200'
+            }`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                streamStatus === 'CONNECTED'
+                  ? 'bg-emerald-500 animate-pulse'
+                  : streamStatus === 'CONNECTING'
+                  ? 'bg-amber-500 animate-ping'
+                  : 'bg-rose-500'
+              }`}
+            />
+            <span>
+              {streamStatus === 'CONNECTED'
+                ? 'Live Webhook Stream: Active'
+                : streamStatus === 'CONNECTING'
+                ? 'Connecting Stream...'
+                : 'Stream Offline'}
+            </span>
+          </div>
+
+          {/* Quick Test Webhook Trigger Button */}
+          <button
+            onClick={handleTriggerTest}
+            disabled={triggeringTest}
+            className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md shadow-sm transition-colors disabled:opacity-50"
+            title="Dispatches a live simulated risk event through the backend webhook pipeline"
+          >
+            <span>{triggeringTest ? '⏳ Sending...' : '⚡ Trigger Webhook Test'}</span>
+          </button>
+
+          <div className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-md font-medium">
+            Updated: {new Date().toLocaleTimeString()}
+          </div>
         </div>
       </div>
+
+      {/* Live Webhook Event Banner Toast */}
+      {liveBanner && (
+        <div className="p-4 bg-gradient-to-r from-red-600 to-amber-600 text-white rounded-lg shadow-lg flex items-center justify-between animate-bounce">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🚨</span>
+            <div>
+              <div className="font-bold text-sm tracking-wide flex items-center gap-2">
+                <span>LIVE WEBHOOK ALERT: {liveBanner.type}</span>
+                <span className="px-1.5 py-0.5 text-[10px] bg-white/20 uppercase rounded font-mono">
+                  {liveBanner.severity}
+                </span>
+              </div>
+              <div className="text-xs text-white/90">
+                Driver <strong className="font-mono">{liveBanner.driverId}</strong> flagged via{' '}
+                <em>{liveBanner.source}</em> at {liveBanner.timestamp}. Dashboard updated in real-time.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setLiveBanner(null)}
+            className="text-white/80 hover:text-white text-sm font-bold px-2 py-1 rounded hover:bg-white/10"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

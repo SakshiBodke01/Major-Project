@@ -1,38 +1,84 @@
-# ML Model Pipeline & Quantization (Offline Environment)
+# DriveGuard AI - Edge Machine Learning Pipeline & Quantization
 
-## Purpose & Edge ML Rationale
-
-In this system, **no live ML inference occurs on the server**. Instead, the smartphone acts as an autonomous edge processing node.
-
-This directory contains offline scripts for:
-1. Model training and fine-tuning (e.g. MediaPipe Face Mesh, Eye Aspect Ratio classifiers, PERCLOS estimators).
-2. Exporting PyTorch / TensorFlow models to ONNX and TensorFlow Lite (`.tflite`) formats.
-3. Post-training INT8 quantization to optimize TFLite models for ARM NPU/GPU execution on smartphones.
+This directory contains offline scripts, architecture specifications, and quantization workflows for DriveGuard AI's edge-based machine learning modules.
 
 ---
 
-## Model Deployment Workflow
+## 🎯 Architectural Rationale: Autonomous Edge Inference
 
+In DriveGuard AI, **zero live ML inference takes place on the cloud server**. All computer vision and deep learning models execute locally on the driver's smartphone.
+
+### Why Edge-First?
+1. **Absolute Privacy Preservation**: Eliminates video streaming over the air. Raw camera frames remain volatile in device RAM and are closed immediately upon processing (`imageProxy.close()`).
+2. **Deterministic Real-Time Latency**: Eliminates network latency jitter. Alert decisions trigger in milliseconds on-device, critical for driver micro-sleeps.
+3. **Resilience to Disconnection**: Continued uninterrupted monitoring and audible alerts through cellular blackouts, tunnels, and remote highways.
+4. **Massive Cloud Cost Reduction**: Central servers process only tiny JSON telemetry packets (~300 bytes), avoiding costly multi-stream video decoding infrastructure.
+
+---
+
+## 🔬 Edge Computer Vision Modules
+
+### 1. MediaPipe 468-Point 3D Face Mesh
+- **Runtime**: MediaPipe Android Face Landmark Solution.
+- **Eye Aspect Ratio (EAR)**: Computes eye openness based on 6 landmark pairs per eye:
+  $$\text{EAR} = \frac{\|p_2 - p_6\| + \|p_3 - p_5\|}{2 \cdot \|p_1 - p_4\|}$$
+  - **Threshold**: $\text{EAR} < 0.21$ indicates eye closure.
+  - **Prolonged Closure**: Eyes closed continuously for $\ge 1500\text{ ms}$ triggers a `DROWSINESS` risk event (`-30` pts). Normal blinks ($100-400\text{ ms}$) are ignored.
+- **Mouth Aspect Ratio (MAR)**: Evaluates vertical mouth opening:
+  $$\text{MAR} = \frac{\|p_{13} - p_{14}\|}{\|p_{78} - p_{308}\|}$$
+  - **Threshold**: $\text{MAR} \ge 0.60$ for $\ge 1500\text{ ms}$ classifies a sustained yawn (`-10` pts) with a 5000 ms debounce cooldown to prevent chatter from speech.
+
+### 2. YOLOv8 Mobile Phone Detection Engine
+- **Base Architecture**: Ultralytics YOLOv8 Nano (`yolov8n`), optimized for mobile neural processing.
+- **Input Resolution**: $320 \times 320 \times 3$ RGB (quantized INT8).
+- **Target Class**: Class ID `67` (`"cell phone"`) in COCO or fine-tuned cabin distraction dataset.
+- **Non-Maximum Suppression (NMS)**: Intersection-over-Union (IoU) threshold of $0.45$ eliminates redundant overlapping bounding boxes.
+- **Temporal Sliding-Window Filter**: Requires positive detection in at least $\ge 3$ out of the last $5$ consecutive frames (`slidingWindowSize = 5`, `requiredConsecutiveFrames = 3`) to eliminate transient false positives from shadows or mirrors.
+
+---
+
+## 🔄 Model Quantization & Mobile Export Workflow
+
+```text
+[PyTorch / YOLOv8 Training (.pt)]
+               │
+               ▼
+   [ONNX Intermediate Export]
+               │
+               ▼
+[TensorFlow Graph Optimization]
+               │
+               ▼
+[Post-Training Quantization (INT8)]
+  - Calibration on cabin images
+  - Dynamic range clamping
+               │
+               ▼
+    [Quantized .tflite File]
+               │
+               ▼
+[android-app/app/src/main/assets/]
 ```
-[Offline Training / Notebooks] 
-           │
-           ▼
-[Export to ONNX / TFLite]
-           │
-           ▼
-[INT8 / FP16 Quantization]
-           │
-           ▼
-[Copy .tflite to android-app/app/src/main/assets/]
-           │
-           ▼
-[On-Device Real-time Inference (RAM only)]
+
+### Export Commands:
+```bash
+# 1. Install Ultralytics suite
+pip install ultralytics onnx tensorflow
+
+# 2. Export YOLOv8 Nano checkpoint to INT8 TFLite
+yolo export model=yolov8n.pt format=tflite int8=True imgsz=320
+
+# 3. Copy quantized artifact to Android assets
+cp yolov8n_saved_model/yolov8n_int8.tflite ../android-app/app/src/main/assets/yolov8n_phone.tflite
 ```
 
 ---
 
-## Guidelines for Adding ML Models
-- Target model size: **< 15 MB** for mobile latency (< 30ms per frame).
-- Input shape: Standard single/dual RGB frame `(1, 224, 224, 3)`.
-- Output: Numerical metrics (`drowsinessScore` `[0.0, 1.0]`, `headPoseYaw` `[-90, +90]`, `eyeClosureRatio`).
-- Raw camera frames must **never** be saved or transmitted to any external server during or after inference.
+## 📐 Mobile Hardware Performance Constraints
+
+| Constraint Parameter | Design Specification | Rationale |
+| :--- | :--- | :--- |
+| **Model Size** | $\le 15\text{ MB}$ | Fast cold-start loading into mobile RAM |
+| **Inference Latency** | $\le 35\text{ ms}$ per frame | Maintains $\ge 25\text{ FPS}$ smooth real-time pipeline |
+| **Quantization Precision** | INT8 / FP16 | Enables hardware acceleration via Android NNAPI & GPU |
+| **Buffer Management** | Immediate closure (`imageProxy.close()`) | Prevents camera frame buffer starvation in CameraX |

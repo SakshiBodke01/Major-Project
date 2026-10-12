@@ -29,15 +29,17 @@ class RiskEngine(
     private var currentScore: Int = config.initialScore
     private val eventHistory = mutableListOf<RiskEngineEvent>()
     private val lastEventTimeMap = mutableMapOf<String, Long>()
+    private var lastViolationOrRecoveryTimeMs: Long = System.currentTimeMillis()
 
     /**
      * Reset safety score and clear history for a new trip session.
      */
     @Synchronized
-    fun resetForNewTrip() {
+    fun resetForNewTrip(startTimeMs: Long = System.currentTimeMillis()) {
         currentScore = config.initialScore
         eventHistory.clear()
         lastEventTimeMap.clear()
+        lastViolationOrRecoveryTimeMs = startTimeMs
         Logger.i("RiskEngine", "Safety Score reset to ${config.initialScore} for new trip.")
     }
 
@@ -47,6 +49,9 @@ class RiskEngine(
     @Synchronized
     fun getEventHistory(): List<RiskEngineEvent> = eventHistory.toList()
 
+    @Synchronized
+    fun getLastViolationOrRecoveryTimeMs(): Long = lastViolationOrRecoveryTimeMs
+
     /**
      * Process normalized detection signals from EAR, MAR, and YOLO modules.
      */
@@ -55,6 +60,7 @@ class RiskEngine(
         drowsiness: DrowsinessDetectionResult? = null,
         yawn: YawnDetectionResult? = null,
         yolo: YoloDetectionResult? = null,
+        isDistracted: Boolean = false,
         currentTimeMs: Long = System.currentTimeMillis()
     ): RiskEngineEvent? {
 
@@ -84,7 +90,20 @@ class RiskEngine(
             if (event != null) return event
         }
 
-        // 3. Evaluate Yawning Fatigue Signal (MAR yawn event trigger)
+        // 3. Evaluate Head Pose Distraction Signal (Looking away from road)
+        if (isDistracted) {
+            val event = triggerDeduction(
+                eventType = "DISTRACTION",
+                deductionAmount = config.distractionDeduction,
+                severity = "MEDIUM",
+                cooldownMs = config.distractionCooldownMs,
+                reasonText = "Driver distraction / looking away detected",
+                currentTimeMs = currentTimeMs
+            )
+            if (event != null) return event
+        }
+
+        // 4. Evaluate Yawning Fatigue Signal (MAR yawn event trigger)
         if (yawn?.yawnEvent == true) {
             val event = triggerDeduction(
                 eventType = "YAWNING",
@@ -95,6 +114,49 @@ class RiskEngine(
                 currentTimeMs = currentTimeMs
             )
             if (event != null) return event
+        }
+
+        // 5. If no violation triggered, check if driver qualifies for clean driving score recovery (+20 pts after 1 min)
+        return checkCleanDrivingRecovery(currentTimeMs)
+    }
+
+    /**
+     * Checks if the driver has maintained clean driving without breaking any rules for 1 minute (60s).
+     * If so, awards +20 points (up to maxScore 100), resets the interval for the next clean minute,
+     * and triggers a SCORE_RECOVERY event.
+     */
+    @Synchronized
+    fun checkCleanDrivingRecovery(currentTimeMs: Long = System.currentTimeMillis()): RiskEngineEvent? {
+        if (currentScore >= config.maxScore) {
+            lastViolationOrRecoveryTimeMs = currentTimeMs
+            return null
+        }
+
+        val elapsed = currentTimeMs - lastViolationOrRecoveryTimeMs
+        if (elapsed >= config.cleanDrivingRecoveryIntervalMs) {
+            val previousScore = currentScore
+            val bonus = min(config.cleanDrivingBonus, config.maxScore - currentScore)
+            currentScore = min(config.maxScore, currentScore + bonus)
+            lastViolationOrRecoveryTimeMs = currentTimeMs
+
+            val explanation = "Safe driving for 1 min without violations (+${bonus} pts). Score restored from $previousScore to $currentScore."
+
+            val event = RiskEngineEvent(
+                eventId = "EVT_${UUID.randomUUID()}",
+                eventType = "SCORE_RECOVERY",
+                pointsDeducted = -bonus, // Negative deduction represents points gained (+20)
+                previousScore = previousScore,
+                currentScore = currentScore,
+                severity = "INFO",
+                explanation = explanation,
+                timestamp = currentTimeMs
+            )
+
+            eventHistory.add(event)
+            Logger.i("RiskEngine", "SCORE RECOVERY: $explanation")
+
+            onAlertTriggered?.invoke(event)
+            return event
         }
 
         return null
@@ -119,6 +181,8 @@ class RiskEngine(
         // Clamp score between min (0) and max (100)
         currentScore = max(config.minScore, min(config.maxScore, currentScore - deductionAmount))
         lastEventTimeMap[eventType] = currentTimeMs
+        // Reset 1-minute clean driving recovery timer whenever any rule is broken!
+        lastViolationOrRecoveryTimeMs = currentTimeMs
 
         val explanation = "$reasonText (-$deductionAmount pts). Score reduced from $previousScore to $currentScore."
 

@@ -118,6 +118,13 @@ class TripSessionManager(
         // Save current score to state store
         stateStore.saveActiveTrip(tripId, activeDriverId, event.currentScore, currentState)
 
+        // Backend RiskEvent model strictly records violation events ('DROWSINESS', 'YAWNING', 'PHONE', 'DISTRACTION').
+        // Score recovery events are persisted in local state store and synced on trip completion.
+        if (event.eventType == "SCORE_RECOVERY") {
+            Logger.i("TripSessionManager", "Score recovery event processed locally. New score: ${event.currentScore}")
+            return
+        }
+
         val request = RiskEventRequest(
             eventId = event.eventId, // Idempotency UUID
             tripId = tripId,

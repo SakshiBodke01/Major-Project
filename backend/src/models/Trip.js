@@ -24,6 +24,12 @@ const TripSchema = new mongoose.Schema(
       index: true,
       trim: true,
     },
+    managerId: {
+      type: String,
+      index: true,
+      trim: true,
+      default: null,
+    },
     startTime: {
       type: Date,
       default: Date.now,
@@ -65,5 +71,6 @@ const TripSchema = new mongoose.Schema(
 
 // Compound index for driver trips lookup sorted by startTime
 TripSchema.index({ driverId: 1, startTime: -1 });
+TripSchema.index({ managerId: 1, startTime: -1 });
 
 module.exports = mongoose.model('Trip', TripSchema);

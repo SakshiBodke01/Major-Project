@@ -14,11 +14,24 @@ const startTrip = async (req, res, next) => {
   }
 };
 
+const getTrips = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page || '1', 10);
+    const limit = parseInt(req.query.limit || '50', 10);
+    const managerId = req.user?.managerId || req.query.managerId || null;
+    const result = await tripService.getTrips(page, limit, managerId);
+    return sendSuccess(res, result.trips, 'Trips retrieved successfully', 200, result.pagination);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getActiveTrips = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page || '1', 10);
     const limit = parseInt(req.query.limit || '20', 10);
-    const result = await tripService.getActiveTrips(page, limit);
+    const managerId = req.user?.managerId || req.query.managerId || null;
+    const result = await tripService.getActiveTrips(page, limit, managerId);
     return sendSuccess(res, result.trips, 'Active trips retrieved successfully', 200, result.pagination);
   } catch (error) {
     next(error);
@@ -50,6 +63,7 @@ const finishTrip = async (req, res, next) => {
 
 module.exports = {
   startTrip,
+  getTrips,
   getActiveTrips,
   getTripById,
   finishTrip,

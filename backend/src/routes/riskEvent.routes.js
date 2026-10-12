@@ -1,22 +1,17 @@
 const express = require('express');
-const { createRiskEvent, getRiskEventsByTrip } = require('../controllers/riskEvent.controller');
-const validate = require('../middlewares/validate.middleware');
+const {
+  createRiskEvent,
+  getRiskEvents,
+  getRiskEventsByTrip,
+  getSummary,
+} = require('../controllers/riskEvent.controller');
+const { optionalAuth } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
-const createRiskEventSchema = {
-  body: {
-    eventId: { required: true, type: 'string' },
-    tripId: { required: true, type: 'string' },
-    driverId: { required: true, type: 'string' },
-    type: { required: true, type: 'string' },
-    severity: { required: true, type: 'string' },
-    latitude: { required: true, type: 'number' },
-    longitude: { required: true, type: 'number' },
-  },
-};
-
-router.post('/', validate(createRiskEventSchema), createRiskEvent);
-router.get('/trip/:tripId', getRiskEventsByTrip);
+router.post('/', optionalAuth, createRiskEvent);
+router.get('/', optionalAuth, getRiskEvents);
+router.get('/summary', optionalAuth, getSummary);
+router.get('/trip/:tripId', optionalAuth, getRiskEventsByTrip);
 
 module.exports = router;

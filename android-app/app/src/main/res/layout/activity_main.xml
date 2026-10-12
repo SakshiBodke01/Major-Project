@@ -33,6 +33,16 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/tvDriverBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DRIVER: DRV_101"
+                android:textColor="#38BDF8"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="2dp" />
+
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/title_safety_score"
@@ -87,6 +97,18 @@
                 android:textSize="12sp"
                 android:textStyle="bold" />
 
+            <!-- Pipeline Mode Toggle (Live Camera vs Demo Simulation) -->
+            <Button
+                android:id="@+id/btnModeToggle"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:text="MODE: LIVE"
+                android:textColor="@color/white"
+                android:backgroundTint="#334155"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:layout_marginTop="6dp" />
+
             <!-- GPS Status Indicator -->
             <TextView
                 android:id="@+id/tvGpsStatus"
@@ -96,7 +118,7 @@
                 android:textColor="#10B981"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                android:layout_marginTop="8dp" />
+                android:layout_marginTop="6dp" />
         </LinearLayout>
     </LinearLayout>
 

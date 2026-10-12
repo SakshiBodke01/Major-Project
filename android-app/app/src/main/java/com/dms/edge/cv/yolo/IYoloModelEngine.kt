@@ -8,7 +8,7 @@ import androidx.camera.core.ImageProxy
  * Supports drop-in YOLOv8 Nano / TFLite quantized object detection models.
  */
 interface IYoloModelEngine {
-    fun initialize(context: Context): Boolean
+    fun initialize(context: Context)
     fun detect(imageProxy: ImageProxy): YoloDetectionResult
     fun isModelLoaded(): Boolean
     fun release()

@@ -8,11 +8,14 @@ const { sendError } = require('./utils/responseHandler');
 // Import routes
 const healthRoutes = require('./routes/health.routes');
 const versionRoutes = require('./routes/version.routes');
+const authRoutes = require('./routes/auth.routes');
 const driverRoutes = require('./routes/driver.routes');
 const tripRoutes = require('./routes/trip.routes');
 const riskEventRoutes = require('./routes/riskEvent.routes');
 const scoreSnapshotRoutes = require('./routes/scoreSnapshot.routes');
 const analyticsRoutes = require('./routes/analytics.routes');
+const webhookRoutes = require('./routes/webhook.routes');
+const { streamLiveUpdates } = require('./controllers/webhook.controller');
 
 const app = express();
 
@@ -43,6 +46,10 @@ app.use('/api/v1/health', healthRoutes);
 app.use('/api/version', versionRoutes);
 app.use('/api/v1/version', versionRoutes);
 
+// Register Authentication Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/v1/auth', authRoutes);
+
 // Register Telemetry & Domain Routes
 app.use('/api/drivers', driverRoutes);
 app.use('/api/v1/drivers', driverRoutes);
@@ -58,6 +65,12 @@ app.use('/api/v1/score-snapshots', scoreSnapshotRoutes);
 
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+
+// Register Webhook & Real-Time Live Streaming Routes
+app.use('/api/webhooks', webhookRoutes);
+app.use('/api/v1/webhooks', webhookRoutes);
+app.get('/api/stream/live', streamLiveUpdates);
+app.get('/api/v1/stream/live', streamLiveUpdates);
 
 // 404 Route Handler for undefined endpoints
 app.use((req, res) => {

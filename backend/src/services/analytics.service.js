@@ -8,7 +8,12 @@ const mongoose = require('mongoose');
  */
 
 const getAnalyticsOverview = async (filters = {}) => {
-  const { startDate, endDate, driverId } = filters;
+  const { startDate, endDate, driverId, managerId } = filters;
+  const driverService = require('./driver.service');
+  let managerDriverIds = [];
+  if (managerId) {
+    managerDriverIds = await driverService.getDriverIdsByManager(managerId);
+  }
 
   const start = startDate ? new Date(startDate) : null;
   const end = endDate ? new Date(endDate) : null;
@@ -17,10 +22,16 @@ const getAnalyticsOverview = async (filters = {}) => {
     // Mongo DB Aggregation Pipelines
     const tripMatch = {};
     const eventMatch = {};
+    const driverMatch = {};
 
     if (driverId) {
       tripMatch.driverId = driverId;
       eventMatch.driverId = driverId;
+      driverMatch.driverId = driverId;
+    } else if (managerId) {
+      tripMatch.$or = [{ managerId }, { driverId: { $in: managerDriverIds } }];
+      eventMatch.$or = [{ managerId }, { driverId: { $in: managerDriverIds } }];
+      driverMatch.managerId = managerId;
     }
 
     if (start || end) {
@@ -39,7 +50,7 @@ const getAnalyticsOverview = async (filters = {}) => {
     const [trips, events, drivers] = await Promise.all([
       Trip.find(tripMatch).lean(),
       RiskEvent.find(eventMatch).lean(),
-      Driver.find(driverId ? { driverId } : {}).lean(),
+      Driver.find(driverMatch).lean(),
     ]);
 
     return computeAnalyticsResult(trips, events, drivers);
@@ -48,11 +59,10 @@ const getAnalyticsOverview = async (filters = {}) => {
   // Hybrid Fallback Mode (Reading from service memory maps/collections if available)
   const tripService = require('./trip.service');
   const riskEventService = require('./riskEvent.service');
-  const driverService = require('./driver.service');
 
   const [tripsRes, driversRes] = await Promise.all([
-    tripService.getTrips(1, 1000),
-    driverService.getDrivers(1, 1000),
+    tripService.getTrips(1, 1000, managerId),
+    driverService.getDrivers(managerId, 1, 1000),
   ]);
 
   // Gather fallback trips & drivers

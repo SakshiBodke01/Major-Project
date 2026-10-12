@@ -21,6 +21,12 @@ const RiskEventSchema = new mongoose.Schema(
       index: true,
       trim: true,
     },
+    managerId: {
+      type: String,
+      index: true,
+      trim: true,
+      default: null,
+    },
     type: {
       type: String,
       required: [true, 'type is required'],
@@ -71,5 +77,6 @@ const RiskEventSchema = new mongoose.Schema(
 // Compound indexes for fast trip and driver event queries
 RiskEventSchema.index({ tripId: 1, timestamp: -1 });
 RiskEventSchema.index({ driverId: 1, timestamp: -1 });
+RiskEventSchema.index({ managerId: 1, timestamp: -1 });
 
 module.exports = mongoose.model('RiskEvent', RiskEventSchema);

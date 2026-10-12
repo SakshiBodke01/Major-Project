@@ -26,11 +26,12 @@ class OfflineTelemetryQueue(
 
     @Synchronized
     fun enqueue(request: RiskEventRequest) {
-        if (processedEventIds.contains(request.eventId)) {
+        if (processedEventIds.contains(request.eventId) || queue.any { it.eventId == request.eventId }) {
             Logger.w("OfflineTelemetryQueue", "Duplicate event ${request.eventId} ignored by queue.")
             return
         }
 
+        processedEventIds.add(request.eventId)
         queue.addLast(request)
         Logger.i("OfflineTelemetryQueue", "Event ${request.eventId} (${request.eventType}) queued locally. Queue size: ${queue.size}")
     }

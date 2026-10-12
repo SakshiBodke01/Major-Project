@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark"
+    android:fillViewport="true"
+    tools:context=".auth.LoginActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:gravity="center_horizontal">
+
+        <!-- Top Header: Driver Portal Title -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginTop="36dp"
+            android:layout_marginBottom="32dp">
+
+            <!-- Driver Badge Icon -->
+            <TextView
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:text="🚗"
+                android:textSize="32sp"
+                android:gravity="center"
+                android:background="@drawable/bg_login_card"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Driver Sign-In"
+                android:textColor="@color/white"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.02" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DriveGuard AI • Edge Safety Monitor"
+                android:textColor="@color/text_muted"
+                android:textSize="13sp"
+                android:layout_marginTop="4dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Enter Driver ID and Password to start your shift"
+                android:textColor="#64748B"
+                android:textSize="12sp"
+                android:layout_marginTop="2dp" />
+        </LinearLayout>
+
+        <!-- Driver Login Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_login_card"
+            android:padding="24dp"
+            android:layout_marginBottom="24dp">
+
+            <!-- 1. Driver ID Field -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DRIVER ID"
+                android:textColor="@color/text_muted"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.06"
+                android:layout_marginBottom="6dp" />
+
+            <EditText
+                android:id="@+id/etDriverId"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:background="@drawable/bg_input_field"
+                android:hint="e.g. DRV_101"
+                android:textColorHint="#475569"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                android:paddingHorizontal="16dp"
+                android:inputType="text"
+                android:maxLines="1"
+                android:layout_marginBottom="20dp" />
+
+            <!-- 2. Password Field -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="PASSWORD"
+                android:textColor="@color/text_muted"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.06"
+                android:layout_marginBottom="6dp" />
+
+            <EditText
+                android:id="@+id/etPassword"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:background="@drawable/bg_input_field"
+                android:hint="Enter driver password"
+                android:textColorHint="#475569"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                android:paddingHorizontal="16dp"
+                android:inputType="textPassword"
+                android:maxLines="1"
+                android:layout_marginBottom="20dp" />
+
+            <!-- Quick Auto-Fill Demo Button -->
+            <Button
+                android:id="@+id/btnQuickFillDemo"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="⚡ Auto-Fill Demo: DRV_101 / driver123"
+                android:textColor="#38BDF8"
+                android:backgroundTint="#1E293B"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="18dp" />
+
+            <!-- Driver Login Action Button -->
+            <Button
+                android:id="@+id/btnSignIn"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="DRIVER LOGIN &amp; START SHIFT"
+                android:textColor="@color/white"
+                android:backgroundTint="@color/btn_start"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.03" />
+
+        </LinearLayout>
+
+        <!-- Privacy & Safety Notice -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔒 Edge Privacy Guarantee\nDriver camera footage is processed in local RAM only.\nNo raw video or facial images are uploaded to any server."
+            android:textColor="#64748B"
+            android:textSize="11sp"
+            android:textAlignment="center"
+            android:lineSpacingExtra="3dp"
+            android:layout_marginTop="8dp" />
+
+    </LinearLayout>
+</ScrollView>

@@ -10,18 +10,35 @@ object Logger {
     private const val TAG_PREFIX = "DMS_EDGE_"
 
     fun d(tag: String, message: String) {
-        Log.d(TAG_PREFIX + tag, message)
+        try {
+            Log.d(TAG_PREFIX + tag, message)
+        } catch (_: Throwable) {
+            println("DEBUG: [$tag] $message")
+        }
     }
 
     fun i(tag: String, message: String) {
-        Log.i(TAG_PREFIX + tag, message)
+        try {
+            Log.i(TAG_PREFIX + tag, message)
+        } catch (_: Throwable) {
+            println("INFO: [$tag] $message")
+        }
     }
 
     fun w(tag: String, message: String) {
-        Log.w(TAG_PREFIX + tag, message)
+        try {
+            Log.w(TAG_PREFIX + tag, message)
+        } catch (_: Throwable) {
+            println("WARN: [$tag] $message")
+        }
     }
 
     fun e(tag: String, message: String, throwable: Throwable? = null) {
-        Log.e(TAG_PREFIX + tag, message, throwable)
+        try {
+            Log.e(TAG_PREFIX + tag, message, throwable)
+        } catch (_: Throwable) {
+            println("ERROR: [$tag] $message")
+            throwable?.printStackTrace()
+        }
     }
 }

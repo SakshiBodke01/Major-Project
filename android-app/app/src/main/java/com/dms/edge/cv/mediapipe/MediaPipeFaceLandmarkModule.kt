@@ -61,4 +61,29 @@ class MediaPipeFaceLandmarkModule(
 
         return Pair(drowsinessResult, yawnResult)
     }
+
+    /**
+     * Helper for eye-only landmark processing (used in focused drowsiness analytics & tests).
+     */
+    fun processEyeLandmarks(
+        faceDetected: Boolean,
+        leftEyePoints: List<EyeLandmarkPoint>? = null,
+        rightEyePoints: List<EyeLandmarkPoint>? = null,
+        timestampMs: Long = System.currentTimeMillis()
+    ): DrowsinessDetectionResult {
+        if (!faceDetected || leftEyePoints == null || rightEyePoints == null ||
+            leftEyePoints.size < 6 || rightEyePoints.size < 6
+        ) {
+            return earStateMachine.update(false, 0f, 0f, timestampMs)
+        }
+        val leftEAR = EarCalculator.calculateEAR(
+            leftEyePoints[0], leftEyePoints[1], leftEyePoints[2],
+            leftEyePoints[3], leftEyePoints[4], leftEyePoints[5]
+        )
+        val rightEAR = EarCalculator.calculateEAR(
+            rightEyePoints[0], rightEyePoints[1], rightEyePoints[2],
+            rightEyePoints[3], rightEyePoints[4], rightEyePoints[5]
+        )
+        return earStateMachine.update(true, leftEAR, rightEAR, timestampMs)
+    }
 }

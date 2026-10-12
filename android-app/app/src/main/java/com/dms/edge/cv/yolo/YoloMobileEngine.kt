@@ -28,8 +28,8 @@ class YoloMobileEngine(
     )
     val performanceTracker = PerformanceTracker()
 
-    override fun initialize(context: Context): Boolean {
-        return try {
+    override fun initialize(context: Context) {
+        try {
             val assetList = context.assets.list("") ?: emptyArray()
             if (assetList.contains(config.modelAssetPath)) {
                 Logger.i("YoloMobileEngine", "YOLO Model asset found: ${config.modelAssetPath}. Loading TFLite interpreter...")
@@ -42,11 +42,9 @@ class YoloMobileEngine(
                 )
                 isLoaded = false
             }
-            true
         } catch (e: Exception) {
             Logger.e("YoloMobileEngine", "Error initializing YOLO engine", e)
             isLoaded = false
-            false
         }
     }
 
